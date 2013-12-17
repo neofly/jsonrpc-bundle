@@ -72,13 +72,14 @@ class JsonRpcController extends ContainerAware
     {
         $json = $httprequest->getContent();
         $request = json_decode($json);
+        $requestId = (isset($request->id) ? $request->id : null);
         if ($request === null) {
             return $this->getErrorResponse(self::PARSE_ERROR, null);
         } elseif (!(isset($request->jsonrpc) && isset($request->method) && $request->jsonrpc == '2.0')) {
-            return $this->getErrorResponse(self::INVALID_REQUEST, $request->id);
+            return $this->getErrorResponse(self::INVALID_REQUEST, $requestId);
         }
         if (!in_array($request->method, array_keys($this->config['functions']))) {
-            return $this->getErrorResponse(self::METHOD_NOT_FOUND, $request->id);
+            return $this->getErrorResponse(self::METHOD_NOT_FOUND, $requestId);
         }
         $service = $this->container->get($this->config['functions'][$request->method]['service']);
         $method = $this->config['functions'][$request->method]['method'];
@@ -89,7 +90,7 @@ class JsonRpcController extends ContainerAware
                 if (!(count($params) >= $r->getNumberOfRequiredParameters()
                     && count($params) <= $r->getNumberOfParameters())
                 ) {
-                    return $this->getErrorResponse(self::INVALID_PARAMS, $request->id,
+                    return $this->getErrorResponse(self::INVALID_PARAMS, $requestId,
                         sprintf('Number of given parameters (%d) does not match the number of expected parameters (%d required, %d total)',
                             count($params), $r->getNumberOfRequiredParameters(), $r->getNumberOfParameters()));
                 }
@@ -100,7 +101,7 @@ class JsonRpcController extends ContainerAware
                     /* @var \ReflectionParameter $rp */
                     $name = $rp->name;
                     if (!isset($params->$name) && !$rp->isOptional()) {
-                        return $this->getErrorResponse(self::INVALID_PARAMS, $request->id,
+                        return $this->getErrorResponse(self::INVALID_PARAMS, $requestId,
                             sprintf('Parameter %s is missing', $name));
                     }
                     if (isset($params->$name)) {
@@ -114,11 +115,11 @@ class JsonRpcController extends ContainerAware
             try {
                 $result = call_user_func_array(array($service, $method), $params);
             } catch (\Exception $e) {
-                return $this->getErrorResponse(self::INTERNAL_ERROR, $request->id, $e->getMessage());
+                return $this->getErrorResponse(self::INTERNAL_ERROR, $requestId, $e->getMessage());
             }
             $response = array('jsonrpc' => '2.0');
             $response['result'] = $result;
-            $response['id'] = (isset($request->id) ? $request->id : null);
+            $response['id'] = $requestId;
 
             if ($this->container->has('jms_serializer')) {
                 $response = $this->container->get('jms_serializer')->serialize($response, 'json', $this->serializationContext);
@@ -127,7 +128,7 @@ class JsonRpcController extends ContainerAware
             }
             return new Response($response, 200, array('Content-Type' => 'application/json'));
         } else {
-            return $this->getErrorResponse(self::METHOD_NOT_FOUND, $request->id);
+            return $this->getErrorResponse(self::METHOD_NOT_FOUND, $requestId);
         }
     }
 
