@@ -92,7 +92,11 @@ class JsonRpcController extends ContainerAware
     {
         $requestId = (isset($request->id) ? $request->id : null);
         
-        if (!in_array($request->method, array_keys($this->config['functions']))) {
+        if ($request === null) {
+            return $this->getErrorResponse(self::PARSE_ERROR, null);
+        } else if (!(isset($request->jsonrpc) && isset($request->method) && $request->jsonrpc == '2.0')) {
+            return $this->getErrorResponse(self::INVALID_REQUEST, $requestId);
+        } else if (!in_array($request->method, array_keys($this->config['functions']))) {
             return $this->getErrorResponse(self::METHOD_NOT_FOUND, $requestId);
         }
         $service = $this->container->get($this->config['functions'][$request->method]['service']);
@@ -129,7 +133,7 @@ class JsonRpcController extends ContainerAware
             try {
                 $result = call_user_func_array(array($service, $method), $params);
             } catch (\Exception $e) {
-                return $this->getErrorResponse(self::INTERNAL_ERROR, $requestId, $e->getMessage());
+                return $this->getExceptionResponse($requestId, $e);
             }
             $response = array('jsonrpc' => '2.0');
             $response['result'] = $result;
@@ -173,6 +177,21 @@ class JsonRpcController extends ContainerAware
         return $response;
     }
 
+    protected function getExceptionResponse($id, \Exception $e)
+    {
+        $response = array('jsonrpc' => '2.0', 'id' => $id);
+        $response['error'] = array();
+        $response['error']['code'] = $e->getCode();
+        $response['error']['message'] = $e->getMessage();
+        
+        $callable = array($e, 'getData');
+        if (is_callable($callable)) {
+            $response['error']['data'] = call_user_func($callable);
+        }
+        
+        return $response;
+    }
+    
     /**
      * Set SerializationContext for using with jms_serializer
      *

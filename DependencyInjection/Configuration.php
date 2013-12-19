@@ -30,6 +30,7 @@ class Configuration implements ConfigurationInterface
                             ->scalarNode('method')->end()
                         ->end()
                     ->end()
+                ->end()
             ->end();
 
         return $treeBuilder;
