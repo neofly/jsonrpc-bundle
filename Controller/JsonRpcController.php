@@ -187,6 +187,10 @@ class JsonRpcController extends ContainerAware
         $callable = array($e, 'getData');
         if (is_callable($callable)) {
             $response['error']['data'] = call_user_func($callable);
+            foreach($response['error']['data'] as $key=>$data) 
+            {
+              $response['error']['data'][$key] = $this->container->get('translator')->trans($data);
+            }
         }
         
         return $response;
