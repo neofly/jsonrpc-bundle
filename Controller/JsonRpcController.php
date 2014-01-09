@@ -118,6 +118,8 @@ class JsonRpcController extends ContainerAware
                 foreach ($rps as $i => $rp) {
                     /* @var \ReflectionParameter $rp */
                     $name = $rp->name;
+                    $name = strtolower(preg_replace('/(?<=\\w)(?=[A-Z])/', '_$1', $name));
+                    
                     if (!isset($params->$name) && !$rp->isOptional()) {
                         return $this->getErrorResponse(self::INVALID_PARAMS, $requestId,
                             sprintf('Parameter %s is missing', $name));
